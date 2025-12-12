@@ -1,4 +1,3 @@
-# This file is currently unused
 function(convert_fonts_bdf out_var)
   set(result)
   foreach(in_f ${ARGN})
