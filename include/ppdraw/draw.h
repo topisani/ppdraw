@@ -90,6 +90,7 @@ void draw_clear(const draw_t *draw);
 void draw_pixel(const draw_t *draw, draw_vec_t pos);
 void draw_line(const draw_t *draw, draw_vec_t p0, draw_vec_t p1);
 void draw_rect_fill(const draw_t *draw, draw_vec_t p0, draw_vec_t p1);
+void draw_rect_stroke(const draw_t *draw, draw_vec_t p0, draw_vec_t p1);
 
 void draw_rounded_frame(const draw_t *draw, draw_vec_t p0, draw_vec_t p1, bool fill);
 

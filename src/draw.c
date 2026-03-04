@@ -86,6 +86,17 @@ void draw_rect_fill(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
   }
 }
 
+void draw_rect_stroke(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
+  for (int x = p0.x; x < p1.x; x++) {
+    draw_pixel(draw, DRAW_VEC(x, p0.y));
+    draw_pixel(draw, DRAW_VEC(x, p1.y - 1));
+  }
+  for (int y = p0.y; y < p1.y; y++) {
+    draw_pixel(draw, DRAW_VEC(p0.x, y));
+    draw_pixel(draw, DRAW_VEC(p1.x - 1, y));
+  }
+}
+
 void draw_clear(const draw_t *draw) { memset(draw->fb->buf, 0, draw->fb->buf_size); }
 
 void draw_img(const draw_t *draw, const struct draw_img *img, draw_vec_t p) {

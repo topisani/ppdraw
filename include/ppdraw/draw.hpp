@@ -79,6 +79,7 @@ struct Ctx : draw_t {
   void pixel(Vec pos) const { draw_pixel(this, pos); }
   void line(Vec p0, Vec p1) const { draw_line(this, p0, p1); }
   void rect_fill(Vec p0, Vec p1) const { draw_rect_fill(this, p0, p1); }
+  void rect_stroke(Vec p0, Vec p1) const { draw_rect_stroke(this, p0, p1); }
   void rounded_frame(Vec p0, Vec p1, bool fill) const {
     draw_rounded_frame(this, p0, p1, fill);
   }
