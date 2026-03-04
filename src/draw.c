@@ -2,10 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #include "zephyr/logging/log.h"
-// LOG_MODULE_REGISTER(padraic_draw, LOG_LEVEL_DBG);
-
-static void draw_fb_pixel(draw_fb_t *fb, draw_paint_t *paint, draw_vec_t pos) {
+static void draw_fb_pixel(draw_fb_t *fb, const draw_paint_t *paint, draw_vec_t pos) {
   if (pos.x < 0 || pos.x >= fb->width || pos.y < 0 || pos.y >= fb->height) {
     return;
   }
@@ -30,7 +27,6 @@ void draw_init(draw_t *draw, draw_fb_t *fb) {
 }
 
 void draw_reset(draw_t *draw) {
-  draw->invert = false;
   draw->font = NULL;
   draw->text_spacing = DRAW_VEC(0, 1);
   draw->paint = DRAW_SOLID(DRAW_WHITE);
@@ -39,13 +35,16 @@ void draw_reset(draw_t *draw) {
   draw_clear(draw);
 }
 
-draw_t draw_clone(draw_t *draw) { return *draw; }
+draw_t draw_clone(const draw_t *draw) { return *draw; }
 
-void draw_pixel(draw_t *draw, draw_vec_t pos) {
+void draw_pixel(const draw_t *draw, draw_vec_t pos) {
+  if (pos.x >= draw->size.x || pos.y >= draw->size.y) return;
+  pos.x += draw->clip_offset.x;
+  pos.y += draw->clip_offset.y;
   draw_fb_pixel(draw->fb, &draw->paint, pos);
 }
 
-void draw_line(draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
+void draw_line(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
   draw_dim_t dx = abs(p1.x - p0.x);
   draw_dim_t sx = p0.x < p1.x ? 1 : -1;
   draw_dim_t dy = -abs(p1.y - p0.y);
@@ -79,7 +78,7 @@ void draw_line(draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
   }
 }
 
-void draw_rect_fill(draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
+void draw_rect_fill(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
   for (int x = p0.x; x < p1.x; x++) {
     for (int y = p0.y; y < p1.y; y++) {
       draw_pixel(draw, DRAW_VEC(x, y));
@@ -87,9 +86,9 @@ void draw_rect_fill(draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
   }
 }
 
-void draw_clear(draw_t *draw) { memset(draw->fb->buf, 0, draw->fb->buf_size); }
+void draw_clear(const draw_t *draw) { memset(draw->fb->buf, 0, draw->fb->buf_size); }
 
-void draw_img(draw_t *draw, const struct draw_img *img, draw_vec_t p) {
+void draw_img(const draw_t *draw, const struct draw_img *img, draw_vec_t p) {
   for (int y = 0; y < img->height; y++) {
     for (int x = 0; x < img->width; x++) {
       int i = (y * img->width + x);
@@ -100,7 +99,7 @@ void draw_img(draw_t *draw, const struct draw_img *img, draw_vec_t p) {
   }
 }
 
-void draw_rounded_frame(draw_t *draw, draw_vec_t p0, draw_vec_t p1, bool fill) {
+void draw_rounded_frame(const draw_t *draw, draw_vec_t p0, draw_vec_t p1, bool fill) {
 
   for (int x = p0.x + 1; x < p1.x - 1; x++) {
     draw_pixel(draw, DRAW_VEC(x, p0.y));
@@ -210,7 +209,7 @@ notfound:
 
 #define READ_BIT_U8(ptr, i) (((ptr)[(i) / 8] & (0x80 >> ((i) % 8))) ? 1 : 0)
 
-draw_vec_t draw_glyph(draw_t *draw, uint32_t glyph, draw_vec_t p) {
+draw_vec_t draw_glyph(const draw_t *draw, uint32_t glyph, draw_vec_t p) {
   const draw_font_t *font = draw->font;
   if (font == NULL)
     return DRAW_VEC(0, 0);
@@ -235,7 +234,7 @@ draw_vec_t draw_glyph(draw_t *draw, uint32_t glyph, draw_vec_t p) {
   return DRAW_VEC(p.x + advance_width, p.y + font->height);
 }
 
-draw_vec_t draw_get_str_size(draw_t *draw, const char *str, int length) {
+draw_vec_t draw_get_str_size(const draw_t *draw, const char *str, int length) {
   size_t nbytes = length < 0 ? strlen(str) : length;
   const draw_font_t *font = draw->font;
   if (font == NULL)
@@ -260,7 +259,7 @@ draw_vec_t draw_get_str_size(draw_t *draw, const char *str, int length) {
   return DRAW_VEC(max_width, p.y);
 }
 
-draw_vec_t draw_str(draw_t *draw, draw_vec_t p, const char *str, int length) {
+draw_vec_t draw_str(const draw_t *draw, draw_vec_t p, const char *str, int length) {
   size_t nbytes = length < 0 ? strlen(str) : length;
   draw_vec_t start = p;
   if (draw->font == NULL)
@@ -279,7 +278,7 @@ draw_vec_t draw_str(draw_t *draw, draw_vec_t p, const char *str, int length) {
   return p;
 }
 
-draw_vec_t draw_str_aligned(draw_t *draw, draw_vec_t p, enum draw_align align,
+draw_vec_t draw_str_aligned(const draw_t *draw, draw_vec_t p, enum draw_align align,
                             const char *str, int length) {
   size_t nbytes = length < 0 ? strlen(str) : length;
   switch (align) {

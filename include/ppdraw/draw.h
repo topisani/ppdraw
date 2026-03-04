@@ -26,6 +26,9 @@ typedef struct draw_font {
 typedef uint8_t draw_color_t;
 
 static const draw_color_t DRAW_BLACK = 0x00;
+static const draw_color_t DRAW_G25 = 0x3F;
+static const draw_color_t DRAW_G50 = 0x7F;
+static const draw_color_t DRAW_G75 = 0xBF;
 static const draw_color_t DRAW_WHITE = 0xFF;
 
 typedef enum draw_paint_type {
@@ -34,11 +37,11 @@ typedef enum draw_paint_type {
 } draw_paint_type_t;
 
 typedef struct draw_paint {
-  draw_paint_type_t type;
+  uint8_t type;
   draw_color_t color;
 } draw_paint_t;
 
-#define DRAW_PAINT(type, color) ((draw_paint_t){type, color})
+#define DRAW_PAINT(type, color) ((draw_paint_t){(draw_paint_type_t)(type), (draw_color_t)(color)})
 #define DRAW_SOLID(color) ((draw_paint_t){DRAW_PAINT_SOLID, color})
 #define DRAW_INVERT() ((draw_paint_t){DRAW_PAINT_INVERT, 0})
 
@@ -50,7 +53,7 @@ typedef struct draw_vec {
   draw_dim_t y;
 } draw_vec_t;
 
-#define DRAW_VEC(x, y) ((draw_vec_t){x, y})
+#define DRAW_VEC(x, y) ((draw_vec_t){(draw_dim_t)(x), (draw_dim_t)(y)})
 
 static inline draw_vec_t draw_vec_add(draw_vec_t a, draw_vec_t b);
 static inline draw_vec_t draw_vec_sub(draw_vec_t a, draw_vec_t b);
@@ -67,7 +70,6 @@ typedef struct draw_fb {
 
 struct draw_ctx {
   draw_fb_t *fb;
-  bool invert;
   const draw_font_t *font;
   draw_vec_t text_spacing;
   draw_paint_t paint;
@@ -82,16 +84,16 @@ typedef struct draw_ctx draw_t;
 
 void draw_init(draw_t *draw, draw_fb_t *fb);
 void draw_reset(draw_t *draw);
-draw_t draw_clone(draw_t *draw);
+draw_t draw_clone(const draw_t *draw);
 
-void draw_clear(draw_t *draw);
-void draw_pixel(draw_t *draw, draw_vec_t pos);
-void draw_line(draw_t *draw, draw_vec_t p0, draw_vec_t p1);
-void draw_rect_fill(draw_t *draw, draw_vec_t p0, draw_vec_t p1);
+void draw_clear(const draw_t *draw);
+void draw_pixel(const draw_t *draw, draw_vec_t pos);
+void draw_line(const draw_t *draw, draw_vec_t p0, draw_vec_t p1);
+void draw_rect_fill(const draw_t *draw, draw_vec_t p0, draw_vec_t p1);
 
-void draw_rounded_frame(draw_t *draw, draw_vec_t p0, draw_vec_t p1, bool fill);
+void draw_rounded_frame(const draw_t *draw, draw_vec_t p0, draw_vec_t p1, bool fill);
 
-void draw_img(draw_t *draw, const struct draw_img *img, draw_vec_t p);
+void draw_img(const draw_t *draw, const struct draw_img *img, draw_vec_t p);
 
 void draw_clip(draw_t *draw, draw_vec_t position, draw_vec_t size);
 void draw_translate(draw_t *draw, draw_vec_t position);
@@ -104,10 +106,10 @@ enum draw_align {
 
 #define DRAW_STRLEN SIZE_MAX
 
-draw_vec_t draw_glyph(draw_t *draw, uint32_t glyph, draw_vec_t p);
-draw_vec_t draw_get_str_size(draw_t *draw, const char *str, int nbytes);
-draw_vec_t draw_str(draw_t *draw, draw_vec_t p, const char *str, int nbytes);
-draw_vec_t draw_str_aligned(draw_t *draw, draw_vec_t p, enum draw_align,
+draw_vec_t draw_glyph(const draw_t *draw, uint32_t glyph, draw_vec_t p);
+draw_vec_t draw_get_str_size(const draw_t *draw, const char *str, int nbytes);
+draw_vec_t draw_str(const draw_t *draw, draw_vec_t p, const char *str, int nbytes);
+draw_vec_t draw_str_aligned(const draw_t *draw, draw_vec_t p, enum draw_align,
                             const char *str, int nbytes);
 
 // Inline implementations
@@ -126,6 +128,12 @@ static inline draw_vec_t draw_vec_clip_min(draw_vec_t a, draw_vec_t b) {
 
 static inline draw_vec_t draw_vec_clip_max(draw_vec_t a, draw_vec_t b) {
   return DRAW_VEC(a.x > b.x ? a.x : b.x, a.y > b.y ? a.y : b.y);
+}
+
+static inline draw_t draw_clipped(const draw_t *ctx, draw_vec_t p, draw_vec_t size) {
+  draw_t res = draw_clone(ctx);
+  draw_clip(&res, p, size);
+  return res;
 }
 
 #ifdef __cplusplus
