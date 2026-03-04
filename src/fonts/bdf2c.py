@@ -56,9 +56,8 @@ def bdf2c(input: Path, output: Path, fonts_def_header: Path, name: str | None = 
         if glyph.encoding > 0xFFFF:
             break
 
-        # if glyph.dimensions == (0,0):
+        # if glyph.device_width_x == dims[0] and all(all(b == 0 for b in row) for row in glyph.bitmap):
         #     continue
-
         glyph_origin = [glyph.offset_x, glyph.offset_y]
         # show = chr(glyph.encoding) or '\x00'
         out(f"// char: (U+{glyph.encoding:04X}) {glyph.name}")
@@ -74,7 +73,7 @@ def bdf2c(input: Path, output: Path, fonts_def_header: Path, name: str | None = 
         #     # continue
 
         # The origin describes the position of the lower left corner
-        offs_x = font_origin[0] - glyph_origin[0] 
+        offs_x = font_origin[0] + glyph_origin[0]
         offs_y = font_origin[1] - glyph_origin[1]  + (font.dimensions[1] - glyph.dimensions[1])
 
         index.append(glyph.encoding)

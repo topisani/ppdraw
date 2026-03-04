@@ -25,13 +25,37 @@ Graphics library for low resolution displays on MCUs.
 - [ ] Live-preview on device by sending image over serial transport or similar
 - [ ] Parameters/inputs in live preview
 - [ ] Image embedding cmake support
-- [ ] Improved font selection cmake support
+- [x] Improved font selection cmake support
 
 ## Live Preview
 Allows live-editing code with real time preview. Works by continuously rebuilding the graphics code for the host computer through cmake, and rendering the result in a desktop window.
 
 ### Demo
 ![[docs/demo.gif]]
+
+## Fonts
+
+All bundled BDF fonts are compiled by default. To select a subset:
+
+```cmake
+set(PPDRAW_FONTS spleen-5x8 berry tiny5)
+add_subdirectory(ppdraw)
+target_link_libraries(myapp ppdraw ppdraw_fonts)
+```
+
+To compile your own BDF fonts:
+
+```cmake
+include(PpdrawFonts)
+ppdraw_add_fonts(my_fonts path/to/custom.bdf path/to/another.bdf)
+target_link_libraries(myapp my_fonts)
+```
+
+This creates a static library and generates a `my_fonts/my_fonts.h` header with extern declarations for each font. A custom header path can be specified with the `HEADER` option:
+
+```cmake
+ppdraw_add_fonts(my_fonts path/to/custom.bdf HEADER "${CMAKE_CURRENT_BINARY_DIR}/my_fonts.h")
+```
 
 ## Usage
 
