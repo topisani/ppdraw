@@ -35,7 +35,7 @@ class PreviewUI:
         self.canvas = None
         self.img = None
         self.running = False
-        self.scale = 9
+        self.scale = 5
         self.stop_event = threading.Event()
         self.params = {}
         self.selected_widget = None
@@ -208,7 +208,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-exec", help="Preview executable")
     parser.add_argument("-w", "--watch", help="Watch for the binary to be updated", action='store_true')
-    parser.add_argument("-s", "--scale", help="render scale", type=int, default=10)
+    parser.add_argument("-s", "--scale", help="render scale", type=int, default=5)
     parser.add_argument("--build", help="Cmake build dir")
     parser.add_argument("-t", "--target", help="cmake target")
     args = parser.parse_args()
