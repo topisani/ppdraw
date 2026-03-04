@@ -14,11 +14,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def iter_pixels(data, bpp):
+    mask = (1 << bpp) - 1
+    ppbyte = 8 // bpp
+    for byte in data:
+        for j in range(ppbyte):
+            yield (byte >> (j * bpp)) & mask
+
 @dataclass
 class Img:
     width: int
     height: int
-    data: list
+    pixels: list
 
 @dataclass
 class Param:
@@ -60,8 +67,9 @@ class PreviewUI:
         for y in range(self.img.height):
             for x in range(self.img.width):
                 idx = x + y * self.img.width
-                pixel = self.img.data[idx] if idx < len(self.img.data) else 0
-                color = "white" if pixel != 0 else "black"
+                pixel = self.img.pixels[idx] if idx < len(self.img.pixels) else 0
+                gs = pixel / (2**self.img.bpp -1)
+                color = f"#{int(gs * 255):02X}{int(gs * 255):02X}{int(gs * 255):02X}"
 
                 # Draw the pixel
                 self.canvas.create_rectangle(
@@ -70,7 +78,7 @@ class PreviewUI:
                     x0 + (x + 1) * scale,
                     y0 + (y + 1) * scale,
                     fill=color,
-                    outline=self.grid_color if scale > 1 else "",
+                    outline=self.grid_color if scale > 3 else "",
                 )
 
     def main_loop(self):
@@ -183,9 +191,11 @@ class PreviewExe:
             if field == "bpp":
                 img.bpp = int(rest)
             if field == "data":
+                data = list()
                 while len(rest) > 0:
-                    img.data.append(int(rest[0:2], 16))
+                    data.append(int(rest[0:2], 16))
                     rest = rest[2:]
+                img.pixels = list(iter_pixels(data, img.bpp))
 
         process.wait()
         return img
@@ -208,7 +218,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-exec", help="Preview executable")
     parser.add_argument("-w", "--watch", help="Watch for the binary to be updated", action='store_true')
-    parser.add_argument("-s", "--scale", help="render scale", type=int, default=5)
+    parser.add_argument("-s", "--scale", help="render scale", type=int, default=3)
     parser.add_argument("--build", help="Cmake build dir")
     parser.add_argument("-t", "--target", help="cmake target")
     args = parser.parse_args()
