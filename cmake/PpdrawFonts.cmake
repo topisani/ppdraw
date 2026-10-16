@@ -3,6 +3,13 @@ set(PPDRAW_BDF2C_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../src/fonts/bdf2c.py"
 set(_PPDRAW_FONTS_DIR "${CMAKE_CURRENT_LIST_DIR}/../src/fonts"
     CACHE INTERNAL "Path to ppdraw font.h directory")
 
+# PPDRAW_PYTHON: Python interpreter with scripts/requirements.txt installed.
+# Defaults to the Python3 found by CMake.
+if(NOT PPDRAW_PYTHON)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(PPDRAW_PYTHON "${Python3_EXECUTABLE}")
+endif()
+
 # ppdraw_add_fonts(<target> <bdf_files...> [HEADER <path>] [INCLUDE_DIR <dir>])
 #
 # Creates a static library <target> from the given BDF font files.
@@ -35,7 +42,7 @@ function(ppdraw_add_fonts target)
     set(c_file "${CMAKE_CURRENT_BINARY_DIR}/${target}/src/${bdf_name}.bdf.c")
 
     add_custom_command(OUTPUT "${c_file}"
-      COMMAND "${PPDRAW_BDF2C_SCRIPT}" "${bdf_abs}" "${c_file}" "${header_file}"
+      COMMAND "${PPDRAW_PYTHON}" "${PPDRAW_BDF2C_SCRIPT}" "${bdf_abs}" "${c_file}" "${header_file}"
       DEPENDS "${bdf_abs}" "${PPDRAW_BDF2C_SCRIPT}"
       COMMENT "Converting BDF font ${bdf_name}"
       VERBATIM

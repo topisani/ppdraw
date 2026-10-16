@@ -1,0 +1,8 @@
+name: ppdraw
+build:
+  cmake: zephyr
+  kconfig: zephyr/Kconfig
+package-managers:
+  pip:
+    requirement-files:
+      - scripts/requirements.txt

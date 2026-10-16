@@ -1,13 +1,7 @@
-#!/bin/env -S uv run -s
+#!/usr/bin/env python3
 # vim: ft=python
 #
-# /// script
-# requires-python = ">=3.13"
-# dependencies = [
-# 	"bdffont==0.0.35",
-# 	"click"
-# ]
-# ///
+# Requires: see scripts/requirements.txt
 
 import click
 from pathlib import Path

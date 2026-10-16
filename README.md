@@ -17,7 +17,7 @@ Graphics library for low resolution displays on MCUs.
 - Performance: Currently always draws one pixel at a time, though this could be optimized using platform specific backends.
 
 ## Planned features
-- [ ] Zephyr integration module
+- [x] Zephyr integration module
 - [ ] Missing rendering features
 	- [ ] Circles
 	- [ ] Circular arcs
@@ -32,6 +32,29 @@ Allows live-editing code with real time preview. Works by continuously rebuildin
 
 ### Demo
 ![[docs/demo.gif]]
+
+## Zephyr
+
+ppdraw is a Zephyr module. Add it to your `west.yml`:
+
+```yaml
+manifest:
+  projects:
+    - name: ppdraw
+      url: https://github.com/topisani/ppdraw
+      revision: main
+      path: modules/lib/ppdraw
+```
+
+or point `ZEPHYR_EXTRA_MODULES` at a checkout. Then in `prj.conf`:
+
+```
+CONFIG_PPDRAW=y
+CONFIG_PPDRAW_FONTS="spleen-5x8 tiny5"   # bundled fonts, default spleen-5x8
+CONFIG_PPDRAW_WIDGET_REGISTRY=y          # optional
+```
+
+and `#include <ppdraw/draw.h>` / `<ppdraw/fonts.h>`. Font generation needs the Python packages in `scripts/requirements.txt`; `west packages pip --install` installs them. The C++ wrapper additionally needs ETL on the include path.
 
 ## Fonts
 

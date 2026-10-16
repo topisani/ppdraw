@@ -1,0 +1,21 @@
+menuconfig PPDRAW
+	bool "ppdraw graphics library"
+	help
+	  Framebuffer drawing library for small displays.
+
+if PPDRAW
+
+config PPDRAW_FONTS
+	string "Bundled fonts to compile"
+	default "spleen-5x8"
+	help
+	  Space separated list of bundled BDF font names (file name without
+	  extension, see src/fonts). Each font is declared in <ppdraw/fonts.h>.
+	  Leave empty to build no fonts.
+
+config PPDRAW_WIDGET_REGISTRY
+	bool "Widget registry"
+	help
+	  Enable PPDRAW_REGISTER_WIDGET() and the runtime widget registry.
+
+endif # PPDRAW
