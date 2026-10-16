@@ -131,6 +131,11 @@ void draw_clip(draw_t *ctx, draw_vec_t position, draw_vec_t size) {
   ctx->size = draw_vec_clip_min(size, draw_vec_sub(ctx->size, position));
 }
 
+void draw_translate(draw_t *ctx, draw_vec_t position) {
+  ctx->clip_offset = draw_vec_add(ctx->clip_offset, position);
+  ctx->size = draw_vec_sub(ctx->size, position);
+}
+
 static size_t utf8_strlen(const char *str, size_t len) {
   size_t res = 0;
   for (int i = 0; i < len; i++) {

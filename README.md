@@ -54,7 +54,7 @@ CONFIG_PPDRAW_FONTS="spleen-5x8 tiny5"   # bundled fonts, default spleen-5x8
 CONFIG_PPDRAW_WIDGET_REGISTRY=y          # optional
 ```
 
-and `#include <ppdraw/draw.h>` / `<ppdraw/fonts.h>`. Font generation needs the Python packages in `scripts/requirements.txt`; `west packages pip --install` installs them. The C++ wrapper additionally needs ETL on the include path.
+and `#include <ppdraw/draw.h>` / `<ppdraw/fonts.h>`. Font generation only needs a Python 3 interpreter. The C++ wrapper additionally needs ETL on the include path.
 
 ## Fonts
 

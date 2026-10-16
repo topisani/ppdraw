@@ -7,7 +7,8 @@
 
 namespace ppdraw {
 struct Vec : draw_vec_t {
-  Vec(int x, int y) : draw_vec_t{(draw_dim_t)x, (draw_dim_t)y} {}
+  inline static constexpr draw_vec_t zero = {0,0};
+  constexpr Vec(int x, int y) : draw_vec_t{(draw_dim_t)x, (draw_dim_t)y} {}
   Vec(draw_vec_t p) : draw_vec_t(p) {}
 };
 }; // namespace ppdraw
@@ -79,6 +80,7 @@ struct Ctx : draw_t {
   void pixel(Vec pos) const { draw_pixel(this, pos); }
   void line(Vec p0, Vec p1) const { draw_line(this, p0, p1); }
   void rect_fill(Vec p0, Vec p1) const { draw_rect_fill(this, p0, p1); }
+  void rect_fill() const { this->rect_fill(Vec(0,0), this->size); }
   void rect_stroke(Vec p0, Vec p1) const { draw_rect_stroke(this, p0, p1); }
   void rounded_frame(Vec p0, Vec p1, bool fill) const {
     draw_rounded_frame(this, p0, p1, fill);
@@ -97,8 +99,8 @@ struct Ctx : draw_t {
     return draw_get_str_size(this, str.data(), str.size());
   }
 
-  int16_t width() const { return this->fb->width; }
-  int16_t height() const { return this->fb->height; }
+  int16_t width() const { return this->size.x; }
+  int16_t height() const { return this->size.y; }
 };
 } // namespace ppdraw
 

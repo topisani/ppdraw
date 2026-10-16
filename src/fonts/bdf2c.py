@@ -1,141 +1,120 @@
 #!/usr/bin/env python3
 # vim: ft=python
 #
-# Requires: see scripts/requirements.txt
+# Converts a BDF font to a C source file (usage: bdf2c.py INPUT OUTPUT [-n NAME]). Standard library only.
 
-import click
-from pathlib import Path
-from bdffont import BdfFont
+import argparse
 import math
 import re
-import os
+from dataclasses import dataclass, field
+from pathlib import Path
 
 
-@click.command()
-@click.argument("input", type=Path)
-@click.argument("output", type=Path)
-@click.argument("fonts_def_header", type=Path)
-@click.option("-n", "--name", type=str, default=None)
-def bdf2c(input: Path, output: Path, fonts_def_header: Path, name: str | None = None):
-    if output is None:
-        output = input.with_suffix(".c")
-    if name is None:
-        name = output.stem.removesuffix(".bdf")
-        name = re.sub(r'[^\w]', '_', name)
-        name = "font_" + name
+@dataclass
+class Glyph:
+    name: str
+    encoding: int = -1
+    advance: int = 0
+    dimensions: tuple[int, int] = (0, 0)
+    offset: tuple[int, int] = (0, 0)
+    bitmap: list[list[int]] = field(default_factory=list)
 
 
-    font = BdfFont.load(input)
-
-    out_lines = []
-    out = out_lines.append
-    # out = print
-
-    index = []
-    widths = []
-
-    font_origin = [font.offset_x, font.offset_y]
-
-    out("#include \"font.h\"")
-    out("")
-    out("")
-    out(f"// dims: {font.dimensions}, offset: {font_origin}")
-    out("static const uint8_t __font_bitmap__[] = {")
-
-    dims = font.dimensions
-
-    for glyph in sorted(font.glyphs, key=lambda g: g.encoding):
-        if glyph.encoding <= 0:
+def parse_bdf(path: Path):
+    """Minimal BDF parser: returns (bounding box (w, h, x, y), glyphs)."""
+    bbox = (0, 0, 0, 0)
+    glyphs: list[Glyph] = []
+    glyph = None
+    in_bitmap = False
+    for line in path.read_text().splitlines():
+        key, _, rest = line.strip().partition(" ")
+        args = rest.split()
+        if in_bitmap:
+            if key == "ENDCHAR":
+                in_bitmap = False
+            else:
+                bits = bin(int(key, 16))[2:].zfill(len(key) * 4)
+                glyph.bitmap.append([int(b) for b in bits[: glyph.dimensions[0]]])
+        elif key == "FONTBOUNDINGBOX":
+            bbox = tuple(map(int, args))
+        elif key == "STARTCHAR":
+            glyph = Glyph(rest)
+            glyphs.append(glyph)
+        elif glyph is None:
             continue
-        if glyph.encoding > 0xFFFF:
-            break
+        elif key == "ENCODING":
+            glyph.encoding = int(args[0])
+        elif key == "DWIDTH":
+            glyph.advance = int(args[0])
+        elif key == "BBX":
+            w, h, x, y = map(int, args)
+            glyph.dimensions, glyph.offset = (w, h), (x, y)
+        elif key == "BITMAP":
+            in_bitmap = True
+    return bbox, glyphs
 
-        # if glyph.device_width_x == dims[0] and all(all(b == 0 for b in row) for row in glyph.bitmap):
-        #     continue
-        glyph_origin = [glyph.offset_x, glyph.offset_y]
-        # show = chr(glyph.encoding) or '\x00'
-        out(f"// char: (U+{glyph.encoding:04X}) {glyph.name}")
-        out(
-            f"// advance_width: {glyph.device_width_x}, dims: {glyph.dimensions}, offset: {glyph_origin}"
+
+def bdf2c(input: Path, output: Path, name: str | None = None):
+    if name is None:
+        name = "font_" + re.sub(r"\W", "_", output.stem.removesuffix(".bdf"))
+
+    (width, height, font_x, font_y), glyphs = parse_bdf(input)
+    glyphs = sorted((g for g in glyphs if 0 < g.encoding <= 0xFFFF), key=lambda g: g.encoding)
+
+    out = [
+        '#include "font.h"',
+        "",
+        "",
+        f"// dims: {(width, height)}, offset: {[font_x, font_y]}",
+        "static const uint8_t __font_bitmap__[] = {",
+    ]
+    for g in glyphs:
+        out.append(f"// char: (U+{g.encoding:04X}) {g.name}")
+        out.append(
+            f"// advance_width: {g.advance}, dims: {g.dimensions}, offset: {list(g.offset)}"
         )
 
-        # if dims == (0,0):
-        #     dims = glyph.dimensions
-        # if dims != glyph.dimensions:
-        #     # out("// ERROR: Unexpected glyph size")
-        #     out("")
-        #     # continue
+        # The glyph offset is the position of its lower left corner
+        offs_x = font_x + g.offset[0]
+        offs_y = font_y - g.offset[1] + (height - g.dimensions[1])
 
-        # The origin describes the position of the lower left corner
-        offs_x = font_origin[0] + glyph_origin[0]
-        offs_y = font_origin[1] - glyph_origin[1]  + (font.dimensions[1] - glyph.dimensions[1])
+        nbits = math.ceil(width / 8) * 8
+        rows = [[]] * offs_y + g.bitmap
+        rows += [[]] * (height - len(rows))
+        for row in rows[:height]:
+            cells = ([0] * offs_x + row + [0] * nbits)[:nbits]
+            out.append(
+                "".join(
+                    "".join("X" if c else "_" for c in cells[i : i + 8]) + ","
+                    for i in range(0, len(cells), 8)
+                )
+            )
+        out.append("")
+    out += ["};", "", "static const uint16_t __font_index__[] = {"]
+    out += [f"0x{g.encoding:X}," for g in glyphs]
+    out += ["};", "", "static const uint8_t __font_widths__[] = {"]
+    out += [f"{g.advance}," for g in glyphs]
+    out += [
+        "};",
+        "",
+        f"const struct draw_font {name} = {{",
+        f"    .width = {width},",
+        f"    .height = {height},",
+        f"    .chars = {len(glyphs)},",
+        "    .bitmap = __font_bitmap__,",
+        "    .index = __font_index__,",
+        "    .widths = __font_widths__,",
+        f'    .name = "{name}",',
+        "};",
+    ]
 
-        index.append(glyph.encoding)
-        widths.append(glyph.device_width_x)
-
-        w = dims[0]
-        row_iter = iter(([[0]] * offs_y) + glyph.bitmap)
-        for r in range(dims[1]):
-            row = next(row_iter, [])
-            xs = iter(([0] * offs_x) + row)
-            bm = ''
-            for i in range(math.ceil(w / 8)):
-                for j in range(8):
-                    a = next(xs, 0)
-                    bm += "_" if a == 0 else "X"
-                bm += ","
-
-            out(bm)
-        out("")
-    out("};")
-    out("")
-
-    out("static const uint16_t __font_index__[] = {")
-    for enc in index:
-        out(f"0x{enc:X},")
-    out("};")
-    out("")
-
-    out("static const uint8_t __font_widths__[] = {")
-    for enc in widths:
-        out(f"{enc},")
-    out("};")
-    out("")
-
-    out(f"const struct draw_font {name} = {{")
-    out(f"    .width = {dims[0]},")
-    out(f"    .height = {dims[1]},")
-    out(f"    .chars = {len(index)},")
-    out("    .bitmap = __font_bitmap__,")
-    out("    .index = __font_index__,")
-    out("    .widths = __font_widths__,")
-    out(f"    .name = \"{name}\",")
-    out("};")
-
-
-    os.makedirs(output.parent, exist_ok=True)
-    with open(output, "w") as f:
-        f.writelines(x + "\n" for x in out_lines)
-
-    if not fonts_def_header.exists():
-        os.makedirs(fonts_def_header.parent, exist_ok=True)
-        with open(fonts_def_header, "w") as f:
-            f.write("""
-// Generated by bdf2c.py
-
-#include <stdint.h>
-#include <ppdraw/draw.h>
-
-""")
-
-    with open(fonts_def_header, "r+") as f:
-        line = f"extern const struct draw_font {name};\n"
-        for l in f:
-            if l == line:
-                break
-        else:
-            f.write(line)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(out) + "\n")
 
 
 if __name__ == "__main__":
-    bdf2c()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("-n", "--name", default=None)
+    bdf2c(**vars(parser.parse_args()))
