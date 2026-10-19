@@ -18,7 +18,7 @@ def iter_pixels(data, bpp):
     mask = (1 << bpp) - 1
     ppbyte = 8 // bpp
     for byte in data:
-        for j in range(ppbyte):
+        for j in reversed(range(ppbyte)):
             yield (byte >> (j * bpp)) & mask
 
 @dataclass

@@ -2,13 +2,32 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
 static void draw_fb_pixel(draw_fb_t *fb, const draw_paint_t *paint, draw_vec_t pos) {
   if (pos.x < 0 || pos.x >= fb->width || pos.y < 0 || pos.y >= fb->height) {
     return;
   }
   uint16_t i = pos.y * fb->width + pos.x;
+  if (fb->bpp == 8) {
+    // The common case, without the divisions
+    switch (paint->type) {
+    case DRAW_PAINT_SOLID:
+      fb->buf[i] = paint->color;
+      break;
+    case DRAW_PAINT_INVERT:
+      fb->buf[i] ^= 0xff;
+      break;
+    }
+    return;
+  }
   uint8_t ppbyte = 8 / fb->bpp;
-  uint8_t offs = (i % ppbyte) * fb->bpp;
+  uint8_t offs = (ppbyte - 1 - i % ppbyte) * fb->bpp;
   uint8_t mask = ((1 << fb->bpp) - 1) << offs;
   switch (paint->type) {
   case DRAW_PAINT_SOLID: {
@@ -78,22 +97,33 @@ void draw_line(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
   }
 }
 
+/* Rectangle corners are inclusive: p1 is the last pixel drawn, as with lines. */
 void draw_rect_fill(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
-  for (int x = p0.x; x < p1.x; x++) {
-    for (int y = p0.y; y < p1.y; y++) {
+  if (draw->fb->bpp == 8 && draw->paint.type == DRAW_PAINT_SOLID) {
+    // The pixels draw_pixel would draw: inside the clip size and the framebuffer, as one run per row
+    const draw_fb_t *fb = draw->fb;
+    const int x0 = MAX(p0.x, -draw->clip_offset.x), x1 = MIN(MIN(p1.x, draw->size.x - 1), fb->width - 1 - draw->clip_offset.x);
+    const int y0 = MAX(p0.y, -draw->clip_offset.y), y1 = MIN(MIN(p1.y, draw->size.y - 1), fb->height - 1 - draw->clip_offset.y);
+    for (int y = y0; y <= y1 && x0 <= x1; y++) {
+      memset(&fb->buf[(y + draw->clip_offset.y) * fb->width + x0 + draw->clip_offset.x], draw->paint.color, x1 - x0 + 1);
+    }
+    return;
+  }
+  for (int x = p0.x; x <= p1.x; x++) {
+    for (int y = p0.y; y <= p1.y; y++) {
       draw_pixel(draw, DRAW_VEC(x, y));
     }
   }
 }
 
 void draw_rect_stroke(const draw_t *draw, draw_vec_t p0, draw_vec_t p1) {
-  for (int x = p0.x; x < p1.x; x++) {
+  for (int x = p0.x; x <= p1.x; x++) {
     draw_pixel(draw, DRAW_VEC(x, p0.y));
-    draw_pixel(draw, DRAW_VEC(x, p1.y - 1));
+    draw_pixel(draw, DRAW_VEC(x, p1.y));
   }
-  for (int y = p0.y; y < p1.y; y++) {
+  for (int y = p0.y; y <= p1.y; y++) {
     draw_pixel(draw, DRAW_VEC(p0.x, y));
-    draw_pixel(draw, DRAW_VEC(p1.x - 1, y));
+    draw_pixel(draw, DRAW_VEC(p1.x, y));
   }
 }
 
@@ -112,13 +142,13 @@ void draw_img(const draw_t *draw, const struct draw_img *img, draw_vec_t p) {
 
 void draw_rounded_frame(const draw_t *draw, draw_vec_t p0, draw_vec_t p1, bool fill) {
 
-  for (int x = p0.x + 1; x < p1.x - 1; x++) {
+  for (int x = p0.x + 1; x < p1.x; x++) {
     draw_pixel(draw, DRAW_VEC(x, p0.y));
-    draw_pixel(draw, DRAW_VEC(x, p1.y - 1));
+    draw_pixel(draw, DRAW_VEC(x, p1.y));
   }
-  for (int y = p0.y + 1; y < p1.y - 1; y++) {
+  for (int y = p0.y + 1; y < p1.y; y++) {
     draw_pixel(draw, DRAW_VEC(p0.x, y));
-    draw_pixel(draw, DRAW_VEC(p1.x - 1, y));
+    draw_pixel(draw, DRAW_VEC(p1.x, y));
   }
   if (fill) {
     draw_rect_fill(draw, DRAW_VEC(p0.x + 1, p0.y + 1),
@@ -207,12 +237,17 @@ static int find_glyph(const draw_font_t *font, uint32_t glyph) {
   if (glyph > 0xFFFF) {
     goto notfound;
   }
-  for (int i = 0; i < font->chars; i++) {
-    if (font->index[i] > glyph) {
-      break;
+  // The index is sorted
+  int lo = 0, hi = font->chars - 1;
+  while (lo <= hi) {
+    const int mid = (lo + hi) / 2;
+    if (font->index[mid] == glyph) {
+      return mid;
     }
-    if (font->index[i] == glyph) {
-      return i;
+    if (font->index[mid] < glyph) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
     }
   }
 notfound:
